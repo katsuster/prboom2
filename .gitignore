@@ -1,0 +1,30 @@
+# by autotools
+Makefile.in
+/autom4te.cache/
+/autotools/compile
+/autotools/config.guess
+/autotools/config.sub
+/autotools/depcomp
+/autotools/install-sh
+/autotools/missing
+/aclocal.m4
+/configure
+/configure~
+/config.h
+/config.h.in
+/config.log
+/config.status
+
+# by configure
+Makefile
+.deps/
+/stamp-h1
+/prboom.spec
+
+# by make
+*.o
+/data/prboom.wad
+/data/rdatawad
+/src/POSIX/libposixdoom.a
+/src/SDL/libsdldoom.a
+/src/prboom
