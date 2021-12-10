@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT([prboom],[2.5.0])
-AC_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR(autotools)
 AC_CONFIG_MACRO_DIR(autotools)
 
@@ -12,7 +12,7 @@ AM_INIT_AUTOMAKE([check-news foreign -Woverride -Wobsolete -Wportability -Wsynta
 ifdef([AM_SILENT_RULES],[AM_SILENT_RULES(yes)])
 AM_MAINTAINER_MODE([enable])
 
-AC_ARG_WITH(waddir,AC_HELP_STRING([--with-waddir],[Path to install prboom.wad and look for other WAD files]),
+AC_ARG_WITH(waddir,AS_HELP_STRING([--with-waddir],[Path to install prboom.wad and look for other WAD files]),
 DOOMWADDIR="$withval",
 if test "x$prefix" != xNONE; then
   DOOMWADDIR="$prefix/share/games/doom"
@@ -26,7 +26,7 @@ dnl --- Check for programs
 AC_PROG_CC
 AC_PROG_LN_S
 AC_PROG_RANLIB
-AC_GNU_SOURCE
+AC_USE_SYSTEM_EXTENSIONS
 
 if test "x$GCC" = "xyes"; then
   AC_DEFINE(PACKEDATTR,[__attribute__((packed))],[Set to the attribute to apply to struct definitions to make them packed])
@@ -41,7 +41,7 @@ dnl --- cph: work out flags to pass to compiler
 CFLAGS_OPT="-O2 -fomit-frame-pointer"
 AC_C_COMPILE_FLAGS(-Wall -Wextra -Wno-missing-field-initializers -Wwrite-strings -Wundef -Wbad-function-cast -Wcast-align -Wcast-qual -Wdeclaration-after-statement -Wpointer-arith -ffast-math)
 dnl --- Option to enable debugging
-AC_ARG_ENABLE(debug,AC_HELP_STRING([--enable-debug],[turns on various debugging features, like range checking and internal heap diagnostics]),,enable_debug="no")
+AC_ARG_ENABLE(debug,AS_HELP_STRING([--enable-debug],[turns on various debugging features, like range checking and internal heap diagnostics]),,enable_debug="no")
 if test "$enable_debug" = "no"
 then
     AC_C_COMPILE_FLAGS(-Wno-unused -Wno-switch -Wno-sign-compare -Wno-pointer-sign)
@@ -52,7 +52,7 @@ else
     AC_DEFINE(INSTRUMENTED,1,[Define this to see real-time memory allocation statistics, and enable extra debugging features])
     AC_DEFINE(TIMEDIAG,1,[Defining this causes time stamps to be created each time a lump is locked, and lumps locked for long periods of time are reported])
 fi
-AC_ARG_ENABLE(profile,AC_HELP_STRING([--enable-profile],[turns on profiling]),,enable_profile="no")
+AC_ARG_ENABLE(profile,AS_HELP_STRING([--enable-profile],[turns on profiling]),,enable_profile="no")
 if test "$enable_profile" = "yes"
 then
     CFLAGS_OPT="-pg"
@@ -77,7 +77,13 @@ fi
 dnl --- Header files, typedefs, structures
 AC_TYPE_UID_T
 AC_TYPE_SIZE_T
-AC_DECL_SYS_SIGLIST
+AC_CHECK_DECLS([sys_siglist],[],[],[#include <signal.h>
+/* NetBSD declares sys_siglist in unistd.h.  */
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+])
+
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(unistd.h asm/byteorder.h sched.h)
 
@@ -101,7 +107,7 @@ case "$target" in
         SYS_GL_LIBS="-lGL -lGLU"
         ;;
     *-*-aix*)
-        if test x$ac_cv_prog_gcc = xyes; then
+        if test x$ac_cv_c_compiler_gnu = xyes; then
             CFLAGS="$CFLAGS -mthreads"
         fi
         ;;
@@ -111,17 +117,17 @@ case "$target" in
 esac
 
 dnl - GL
-AC_ARG_ENABLE(gl,AC_HELP_STRING([--disable-gl],[disable OpenGL rendering code]),,enable_gl="yes")
+AC_ARG_ENABLE(gl,AS_HELP_STRING([--disable-gl],[disable OpenGL rendering code]),,enable_gl="yes")
 if test "$enable_gl" = "yes"
 then
     AC_MSG_CHECKING(for OpenGL support)
     have_opengl=no
-    AC_TRY_COMPILE([
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
      #include <GL/gl.h>
-    ],[
-    ],[
+    ]], [[
+    ]])],[
     have_opengl=yes
-    ])
+    ],[])
     AC_MSG_RESULT($have_opengl)
     if test x$have_opengl = xyes; then
         AC_DEFINE(GL_DOOM,1,[Define if you are building with OpenGL support])
@@ -149,7 +155,7 @@ AC_CHECK_FUNCS(SDL_JoystickGetAxis)
 LIBS="$savelibs"
 
 AC_ARG_WITH([mixer],
-  AC_HELP_STRING([--without-mixer],[Do not use SDL_mixer even if available]),
+  AS_HELP_STRING([--without-mixer],[Do not use SDL_mixer even if available]),
   [], [with_mixer=yes])
 AS_IF([test "x$with_mixer" != xno],
   AC_CHECK_LIB(SDL_mixer,Mix_OpenAudio,[],[],[$SDL_LIBS $MIXER_LIBS]))
@@ -172,13 +178,12 @@ AS_IF([test "x$with_net" = xno],
       sdl_net=yes
       save_CFLAGS="$CFLAGS"
       CFLAGS="$CFLAGS $SDL_CFLAGS"
-      AC_TRY_COMPILE([
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
           #include "SDL_net.h"
-          ],[
+          ]], [[
           UDPpacket *p;
           int n = sizeof(p->src);
-          ],
-          AC_DEFINE(SDL_NET_UDP_PACKET_SRC,1,[Define if you have an old SDL_net, such that the UDPpacket structure has a src member instead of an address member]))
+          ]])],[AC_DEFINE(SDL_NET_UDP_PACKET_SRC,1,Define if you have an old SDL_net, such that the UDPpacket structure has a src member instead of an address member)],[])
       CFLAGS="$save_CFLAGS"
     ],[
       dnl -- Warn if networking support was not disabled but sdlnet is missing
@@ -188,7 +193,7 @@ AS_IF([test "x$with_net" = xno],
 AM_CONDITIONAL(BUILD_SERVER, [test "$sdl_net" = "yes"])
 
 dnl - Other libs
-AC_ARG_WITH([png], AC_HELP_STRING([--without-png], [Do not use libpng even if available]),,with_png=yes)
+AC_ARG_WITH([png], AS_HELP_STRING([--without-png],[Do not use libpng even if available]),,with_png=yes)
 AS_IF([test "x$with_png" != xno],AC_CHECK_LIB(png,png_create_info_struct))
 
 AC_EGREP_HEADER(sockaddr_in6,netinet/in.h,AC_DEFINE(HAVE_IPv6,1,[Define if you have struct sockaddr_in6]))
@@ -200,21 +205,20 @@ AC_DEFINE(SIMPLECHECKS,1,[When defined this causes quick checks which only impos
 AC_DEFINE(ZONEIDCHECK,1,[Define this to perform id checks on zone blocks, to detect corrupted and illegally freed blocks])
 
 AC_ARG_ENABLE(nonfree-graphics,
-              AC_HELP_STRING([--disable-nonfree-graphics],
-                             [build prboom.wad without non-free menu text lumps]),
+              AS_HELP_STRING([--disable-nonfree-graphics],[build prboom.wad without non-free menu text lumps]),
               [], [enable_nonfree_graphics="yes"])
 AS_IF([test -f "$srcdir"/data/graphics/m_generl.ppm],
       [], [enable_nonfree_graphics="no"])
 AM_CONDITIONAL(NONFREE_GRAPHICS, [test "x$enable_nonfree_graphics" = "xyes"])
 
-AC_ARG_ENABLE(dogs,AC_HELP_STRING([--disable-dogs],[disables support for helper dogs]),,enable_dogs="yes")
+AC_ARG_ENABLE(dogs,AS_HELP_STRING([--disable-dogs],[disables support for helper dogs]),,enable_dogs="yes")
 if test x"$enable_dogs" = xyes
 then
 	AC_DEFINE(DOGS,1,[Define for support for MBF helper dogs])
 fi
 
-AC_ARG_ENABLE(heapcheck,AC_HELP_STRING([--enable-heapcheck],[turns on continuous heap checking (very slow)]),,enable_heapcheck="no")
-AC_ARG_ENABLE(heapdump,AC_HELP_STRING([--enable-heapdump],[turns on dumping the heap state for debugging]),,enable_heapdump="no")
+AC_ARG_ENABLE(heapcheck,AS_HELP_STRING([--enable-heapcheck],[turns on continuous heap checking (very slow)]),,enable_heapcheck="no")
+AC_ARG_ENABLE(heapdump,AS_HELP_STRING([--enable-heapdump],[turns on dumping the heap state for debugging]),,enable_heapdump="no")
 if test "$enable_heapcheck" = "yes"
 then
     AC_DEFINE(CHECKHEAP,1,[Uncomment this to exhaustively run memory checks while the game is running (this is EXTREMELY slow).])
@@ -235,4 +239,5 @@ AC_SUBST(CFLAGS)
 AC_SUBST(DOOMWADDIR)
 
 dnl --- output
-AC_OUTPUT(Makefile src/Makefile src/POSIX/Makefile src/SDL/Makefile src/MAC/Makefile doc/Makefile data/Makefile ICONS/Makefile VisualC6/Makefile VisualC8/Makefile prboom.spec)
+AC_CONFIG_FILES([Makefile src/Makefile src/POSIX/Makefile src/SDL/Makefile src/MAC/Makefile doc/Makefile data/Makefile ICONS/Makefile VisualC6/Makefile VisualC8/Makefile prboom.spec])
+AC_OUTPUT
