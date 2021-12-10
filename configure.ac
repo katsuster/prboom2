@@ -38,7 +38,7 @@ else
 fi
 
 dnl --- cph: work out flags to pass to compiler
-CFLAGS_OPT="-O2 -fomit-frame-pointer"
+CFLAGS_OPT="-O2 -fomit-frame-pointer -fcommon"
 AC_C_COMPILE_FLAGS(-Wall -Wextra -Wno-missing-field-initializers -Wwrite-strings -Wundef -Wbad-function-cast -Wcast-align -Wcast-qual -Wdeclaration-after-statement -Wpointer-arith -ffast-math)
 dnl --- Option to enable debugging
 AC_ARG_ENABLE(debug,AS_HELP_STRING([--enable-debug],[turns on various debugging features, like range checking and internal heap diagnostics]),,enable_debug="no")
