@@ -123,4 +123,19 @@ enum patch_translation_e {
   VPT_STRETCH = 4, // Stretch to compensate for high-res
 };
 
+#include <stdio.h>
+
+typedef struct MYFILE_ {
+	const char *name;
+	long long pos;
+	long long len;
+	const char *ptr;
+	FILE *fp;
+} MYFILE;
+
+MYFILE *myfopen(const char *pathname, const char *mode);
+int myfseek(MYFILE *stream, long offset, int whence);
+size_t myfread(void *ptr, size_t size, size_t nmemb, MYFILE *stream);
+int myfclose(MYFILE *stream);
+
 #endif

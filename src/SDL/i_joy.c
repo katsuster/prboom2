@@ -37,7 +37,7 @@
 
 #include <stdlib.h>
 
-#include "SDL.h"
+//#include "SDL.h"
 #include "doomdef.h"
 #include "doomtype.h"
 #include "m_argv.h"
@@ -54,7 +54,7 @@ int joydown;
 int usejoystick;
 
 #ifdef HAVE_SDL_JOYSTICKGETAXIS
-static SDL_Joystick *joystick;
+//static SDL_Joystick *joystick;
 #endif
 
 static void I_EndJoystick(void)
@@ -64,6 +64,7 @@ static void I_EndJoystick(void)
 
 void I_PollJoystick(void)
 {
+#if 0
 #ifdef HAVE_SDL_JOYSTICKGETAXIS
   event_t ev;
   Sint16 axis_value;
@@ -84,10 +85,12 @@ void I_PollJoystick(void)
 
   D_PostEvent(&ev);
 #endif
+#endif
 }
 
 void I_InitJoystick(void)
 {
+#if 0
 #ifdef HAVE_SDL_JOYSTICKGETAXIS
   const char* fname = "I_InitJoystick : ";
   int num_joysticks;
@@ -114,4 +117,9 @@ void I_InitJoystick(void)
     joyleft = -32768;
   }
 #endif
+#endif
+    joyup = 32767;
+    joydown = -32768;
+    joyright = 32767;
+    joyleft = -32768;
 }

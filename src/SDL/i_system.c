@@ -33,6 +33,7 @@
  *-----------------------------------------------------------------------------
  */
 
+#include <stdint.h>
 #include <stdio.h>
 
 #include <stdarg.h>
@@ -55,8 +56,6 @@
 #include <windows.h>
 #endif
 
-#include "SDL.h"
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -71,6 +70,7 @@
 #endif
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <errno.h>
 
 #ifndef PRBOOM_SERVER
@@ -95,36 +95,179 @@
 #include "config.h"
 #endif
 
+static uint32_t get_ticks(void)
+{
+	struct timeval tv;
+
+	gettimeofday(&tv, NULL);
+
+	return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+}
+
 static unsigned int start_displaytime;
 static unsigned int displaytime;
 static boolean InDisplay = false;
+
+#include "doombin.h"
+#include "prboombin.h"
+
+int access(const char *pathname, int mode)
+{
+	if (stricmp(pathname, "DOOM.WAD") == 0) {
+		return 0;
+	} else if (stricmp(pathname, "prboom.wad") == 0) {
+		return 0;
+	}
+
+	printf("access:'%s' ignored.\n", pathname);
+	return -1;
+}
+
+int mkdir(const char *pathname, mode_t mode)
+{
+	printf("mkdir:'%s' ignored.\n", pathname);
+	return -1;
+}
+
+int usleep(useconds_t usec)
+{
+	return -1;
+}
+
+MYFILE *myfopen(const char *pathname, const char *mode)
+{
+	MYFILE *stream;
+	const uint8_t *ptr;
+	long long len;
+
+	if (stricmp(pathname, "DOOM.WAD") == 0) {
+		ptr = doombin_dat;
+		len = doombin_len;
+	} else if (stricmp(pathname, "prboom.wad") == 0) {
+		ptr = prboombin_dat;
+		len = prboombin_len;
+	} else {
+		return NULL;
+	}
+	
+	stream = calloc(1, sizeof(MYFILE));
+	stream->name = strdup(pathname);
+	stream->fp = NULL;
+	//stream->fp = fopen(pathname, mode);
+	//if (!stream->fp) {
+	//	free(stream);
+	//	stream = NULL;
+	//}
+	stream->pos = 0;
+	stream->ptr = (const char *)ptr;
+	stream->len = len;
+
+	return stream;
+}
+
+int myfstat(MYFILE *stream, struct stat *buf)
+{
+	buf->st_size = stream->len;
+
+	return 0;
+}
+
+int myfseek(MYFILE *stream, long offset, int whence)
+{
+	long long newpos;
+
+	//fseek(stream->fp, offset, whence);
+
+	if (!stream) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	newpos = stream->pos;
+
+	switch (whence) {
+	case SEEK_SET:
+		newpos = offset;
+		break;
+	case SEEK_END:
+		newpos = stream->len + offset;
+		break;
+	case SEEK_CUR:
+		newpos += offset;
+		break;
+	default:
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (newpos < 0) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	stream->pos = newpos;
+
+	return 0;
+}
+
+size_t myfread(void *ptr, size_t size, size_t nmemb, MYFILE *stream)
+{
+	//r = fread(ptr, size, nmemb, stream->fp);
+
+	if (!stream) {
+		errno = EINVAL;
+		return 0;
+	}
+
+	if (stream->pos + size * nmemb > stream->len) {
+		nmemb = (stream->len - stream->pos) / size;
+	}
+
+	memcpy(ptr, &stream->ptr[stream->pos], size * nmemb);
+	stream->pos += size * nmemb;
+
+	return nmemb;
+}
+
+int myfclose(MYFILE *stream)
+{
+	if (!stream) {
+		errno = EBADF;
+		return EOF;
+	}
+
+	//fclose(stream->fp);
+	free(stream);
+
+	return 0;
+}
 
 boolean I_StartDisplay(void)
 {
   if (InDisplay)
     return false;
 
-  start_displaytime = SDL_GetTicks();
+  start_displaytime = get_ticks();
   InDisplay = true;
   return true;
 }
 
 void I_EndDisplay(void)
 {
-  displaytime = SDL_GetTicks() - start_displaytime;
+  displaytime = get_ticks() - start_displaytime;
   InDisplay = false;
 }
 
 void I_uSleep(unsigned long usecs)
 {
-    SDL_Delay(usecs/1000);
+    usleep(usecs);
 }
 
 int ms_to_next_tick;
 
 int I_GetTime_RealTime (void)
 {
-  int t = SDL_GetTicks();
+  int t = get_ticks();
   int i = t*(TICRATE/5)/200;
   ms_to_next_tick = (i+1)*200/(TICRATE/5) - t;
   if (ms_to_next_tick > 1000/TICRATE || ms_to_next_tick<1) ms_to_next_tick = 1;
@@ -137,7 +280,7 @@ fixed_t I_GetTimeFrac (void)
   unsigned long now;
   fixed_t frac;
 
-  now = SDL_GetTicks();
+  now = get_ticks();
 
   if (tic_vars.step == 0)
     return FRACUNIT;
@@ -157,7 +300,7 @@ void I_GetTime_SaveMS(void)
   if (!movement_smooth)
     return;
 
-  tic_vars.start = SDL_GetTicks();
+  tic_vars.start = get_ticks();
   tic_vars.next = (unsigned int) ((tic_vars.start * tic_vars.msec + 1.0f) / tic_vars.msec);
   tic_vars.step = tic_vars.next - tic_vars.start;
 }
@@ -171,7 +314,7 @@ void I_GetTime_SaveMS(void)
 unsigned long I_GetRandomTimeSeed(void)
 {
 /* This isnt very random */
-  return(SDL_GetTicks());
+  return(get_ticks());
 }
 
 /* cphipps - I_GetVersionString
@@ -204,17 +347,17 @@ const char* I_SigString(char* buf, size_t sz, int signum)
  * cph 2001/11/18 - wrapper for read(2) which handles partial reads and aborts
  * on error.
  */
-void I_Read(int fd, void* vbuf, size_t sz)
+void I_Read(MYFILE *fd, void* vbuf, size_t sz)
 {
   unsigned char* buf = vbuf;
 
-  while (sz) {
-    int rc = read(fd,buf,sz);
+  //while (sz) {
+    int rc = myfread(buf, sz, 1, fd);
     if (rc <= 0) {
       I_Error("I_Read: read failed: %s", rc ? strerror(errno) : "EOF");
     }
-    sz -= rc; buf += rc;
-  }
+    //sz -= rc; buf += rc;
+  //}
 }
 
 /*
@@ -223,10 +366,10 @@ void I_Read(int fd, void* vbuf, size_t sz)
  * Return length of an open file.
  */
 
-int I_Filelength(int handle)
+int I_Filelength(MYFILE *handle)
 {
   struct stat   fileinfo;
-  if (fstat(handle,&fileinfo) == -1)
+  if (myfstat(handle,&fileinfo) == -1)
     I_Error("I_Filelength: %s",strerror(errno));
   return fileinfo.st_size;
 }
@@ -281,7 +424,7 @@ const char *I_DoomExeDir(void)
   static char *base;
   if (!base)        // cache multiple requests
     {
-      char *home = getenv("HOME");
+      char *home = "/";//getenv("HOME");
       size_t len = strlen(home);
 
       base = malloc(len + strlen(prboom_dir) + 1);
@@ -346,6 +489,8 @@ char* I_FindFile(const char* wfname, const char* ext)
   int   i;
   /* Precalculate a length we will need in the loop */
   size_t  pl = strlen(wfname) + strlen(ext) + 4;
+
+  printf("FindFile:wfname:%s\n", wfname);
 
   for (i = 0; i < sizeof(search)/sizeof(*search); i++) {
     char  * p;
@@ -431,6 +576,7 @@ void I_SetAffinityMask(void)
     }
 #elif defined(HAVE_SCHED_SETAFFINITY)
     // POSIX version:
+/*
     int i;
     {
       cpu_set_t set;
@@ -447,6 +593,7 @@ void I_SetAffinityMask(void)
         errbuf = strerror(errno);
       }
     }
+*/
 #else
     return;
 #endif

@@ -39,6 +39,8 @@
 #pragma interface
 #endif
 
+#include "doomtype.h"
+
 //
 // TYPES
 //
@@ -79,7 +81,7 @@ typedef enum {
 typedef struct {
   const char* name;
   wad_source_t src;
-  int handle;
+  MYFILE *handle;
 } wadfile_info_t;
 
 extern wadfile_info_t *wadfiles;

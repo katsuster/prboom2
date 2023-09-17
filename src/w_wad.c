@@ -138,14 +138,14 @@ static void W_AddFile(wadfile_info_t *wadfile)
 
   // open the file and add to directory
 
-  wadfile->handle = open(wadfile->name,O_RDONLY | O_BINARY);
+  wadfile->handle = myfopen(wadfile->name, "rb");
 
 #ifdef HAVE_NET
-  if (wadfile->handle == -1 && D_NetGetWad(wadfile->name)) // CPhipps
-    wadfile->handle = open(wadfile->name,O_RDONLY | O_BINARY);
+  if (wadfile->handle == NULL && D_NetGetWad(wadfile->name)) // CPhipps
+    wadfile->handle = myfopen(wadfile->name, "rb");
 #endif
     
-  if (wadfile->handle == -1) 
+  if (wadfile->handle == NULL) 
     {
       if (  strlen(wadfile->name)<=4 ||      // add error check -- killough
 	         (strcasecmp(wadfile->name+strlen(wadfile->name)-4 , ".lmp" ) &&
@@ -184,7 +184,7 @@ static void W_AddFile(wadfile_info_t *wadfile)
       header.infotableofs = LONG(header.infotableofs);
       length = header.numlumps*sizeof(filelump_t);
       fileinfo2free = fileinfo = malloc(length);    // killough
-      lseek(wadfile->handle, header.infotableofs, SEEK_SET);
+      myfseek(wadfile->handle, header.infotableofs, SEEK_SET);
       I_Read(wadfile->handle, fileinfo, length);
       numlumps += header.numlumps;
     }
@@ -497,7 +497,7 @@ void W_ReadLump(int lump, void *dest)
     {
       if (l->wadfile)
       {
-        lseek(l->wadfile->handle, l->position, SEEK_SET);
+        myfseek(l->wadfile->handle, l->position, SEEK_SET);
         I_Read(l->wadfile->handle, dest, l->size);
       }
     }

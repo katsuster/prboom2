@@ -67,10 +67,10 @@ boolean HasTrailingSlash(const char* dn);
 char* I_FindFile(const char* wfname, const char* ext);
 
 /* cph 2001/11/18 - wrapper for read(2) which deals with partial reads */
-void I_Read(int fd, void* buf, size_t sz);
+void I_Read(MYFILE *fd, void* buf, size_t sz);
 
 /* cph 2001/11/18 - Move W_Filelength to i_system.c */
-int I_Filelength(int handle);
+int I_Filelength(MYFILE *handle);
 
 void I_SetAffinityMask(void);
 

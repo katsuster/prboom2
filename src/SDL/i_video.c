@@ -36,13 +36,14 @@
 #include "config.h"
 #endif
 
+#include <stdint.h>
 #include <stdlib.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
-#include "SDL.h"
+//#include "SDL.h"
 
 #include "m_argv.h"
 #include "doomstat.h"
@@ -60,7 +61,7 @@
 #include "w_wad.h"
 #include "st_stuff.h"
 #include "lprintf.h"
-#include "i_pngshot.h"
+//#include "i_pngshot.h"
 
 int gl_colorbuffer_bits=16;
 int gl_depthbuffer_bits=16;
@@ -73,7 +74,15 @@ int use_doublebuffer = 1; // Included not to break m_misc, but not relevant to S
 #endif
 int use_fullscreen;
 int desired_fullscreen;
-static SDL_Surface *screen;
+//static SDL_Surface *screen;
+
+struct palcol {
+	byte r;
+	byte g;
+	byte b;
+};
+
+struct palcol curpalcol[256];
 
 ////////////////////////////////////////////////////////////////////////////
 // Input code
@@ -91,6 +100,7 @@ static boolean mouse_currently_grabbed;
 //  Translates the key currently in key
 //
 
+#if 0
 static int I_TranslateKey(SDL_keysym* key)
 {
   int rc = 0;
@@ -156,19 +166,24 @@ static int I_TranslateKey(SDL_keysym* key)
   return rc;
 
 }
+#endif
 
 /////////////////////////////////////////////////////////////////////////////////
 // Main input code
 
 /* cph - pulled out common button code logic */
-static int I_SDLtoDoomMouseState(Uint8 buttonstate)
+static int I_SDLtoDoomMouseState(uint8_t buttonstate)
 {
+#if 0
   return 0
       | (buttonstate & SDL_BUTTON(1) ? 1 : 0)
       | (buttonstate & SDL_BUTTON(2) ? 2 : 0)
       | (buttonstate & SDL_BUTTON(3) ? 4 : 0);
+#endif
+  return 0;
 }
 
+#if 0
 static void I_GetEvent(SDL_Event *Event)
 {
   event_t event;
@@ -218,6 +233,7 @@ static void I_GetEvent(SDL_Event *Event)
     break;
   }
 }
+#endif
 
 //
 // I_PrepareMouse
@@ -226,6 +242,7 @@ static void I_GetEvent(SDL_Event *Event)
 
 static void I_PrepareMouse(int force)
 {
+#if 0
   boolean should_be_grabbed = mouse_enabled &&
     !(paused || (gamestate != GS_LEVEL) || demoplayback || menuactive);
 
@@ -240,6 +257,7 @@ static void I_PrepareMouse(int force)
     SDL_PumpEvents();
     while (SDL_PeepEvents(&e, 1, SDL_GETEVENT, SDL_MOUSEMOTIONMASK) > 0) ;
   }
+#endif
 }
 
 //
@@ -248,12 +266,13 @@ static void I_PrepareMouse(int force)
 
 void I_StartTic (void)
 {
+#if 0
   SDL_Event Event;
-
+#endif
   I_PrepareMouse(0);
 
-  while ( SDL_PollEvent(&Event) )
-    I_GetEvent(&Event);
+//  while ( SDL_PollEvent(&Event) )
+//    I_GetEvent(&Event);
 
   I_PollJoystick();
 }
@@ -276,9 +295,11 @@ static void I_InitInputs(void)
   // check if the user wants to use the mouse
   mouse_enabled = usemouse && !nomouse_parm;
 
+#if 0
   // e6y: fix for turn-snapping bug on fullscreen in software mode
   if (!nomouse_parm)
     SDL_WarpMouse((unsigned short)(SCREENWIDTH/2), (unsigned short)(SCREENHEIGHT/2));
+#endif
 
   I_InitJoystick();
 }
@@ -292,14 +313,16 @@ static void I_UploadNewPalette(int pal)
   // Used by 256 colour PseudoColor modes
 
   // Array of SDL_Color structs used for setting the 256-colour palette
-  static SDL_Color* colours;
+  //static SDL_Color* colours;
+  static struct palcol* colours;
   static int cachedgamma;
   static size_t num_pals;
 
   if (V_GetMode() == VID_MODEGL)
     return;
 
-  if ((colours == NULL) || (cachedgamma != usegamma)) {
+  //if ((colours == NULL) || (cachedgamma != usegamma)) {
+  if ((cachedgamma != usegamma)) {
     int pplump = W_GetNumForName("PLAYPAL");
     int gtlump = (W_CheckNumForName)("GAMMATBL",ns_prboom);
     register const byte * palette = W_CacheLumpNum(pplump);
@@ -322,6 +345,14 @@ static void I_UploadNewPalette(int pal)
       palette += 3;
     }
 
+    for (i=0 ; (size_t)i<num_pals ; i++) {
+    //    printf("pal %d: %d,%d,%d\n", i, 
+    //      gtable[palette[0]],
+    //      gtable[palette[1]],
+    //      gtable[palette[2]]);
+    //palette += 3;
+    }
+
     W_UnlockLumpNum(pplump);
     W_UnlockLumpNum(gtlump);
     num_pals/=256;
@@ -333,12 +364,17 @@ static void I_UploadNewPalette(int pal)
       pal, num_pals);
 #endif
 
+  /*
   // store the colors to the current display
   // SDL_SetColors(SDL_GetVideoSurface(), colours+256*pal, 0, 256);
   SDL_SetPalette(
       SDL_GetVideoSurface(),
       SDL_LOGPAL | SDL_PHYSPAL,
       colours+256*pal, 0, 256);
+  */
+  for (int i = 0; i < 256; i++) {
+	  curpalcol[i] = (colours + 256 * pal)[i];
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -346,6 +382,100 @@ static void I_UploadNewPalette(int pal)
 
 void I_ShutdownGraphics(void)
 {
+}
+
+struct palcol *getpixel(byte b)
+{
+  return &curpalcol[b];
+}
+
+int togray(byte b)
+{
+  struct palcol *p = getpixel(b);
+  int gray = (p->r + p->g + p->b) / 3;
+
+  return 232 + (gray / 11);
+}
+
+int togray2(byte *src, int x, int pitch, int w, int h)
+{
+  int total = 0;
+  int cnt = 0;
+
+  for (int iy = 0; iy < h; iy++) {
+    for (int ix = 0; ix < w; ix++) {
+      byte bb = src[x + ix + iy * pitch];
+      struct palcol *p = getpixel(bb);
+      int gray = (p->r + p->g + p->b) / 3;
+      total += gray;
+      cnt++;
+    }
+  }
+
+  total = total / cnt;
+  return 232 + (total / 11);
+}
+
+int tocol2(byte *src, int x, int pitch, int w, int h)
+{
+  int r = 0, g = 0, b = 0;
+  int rlv, glv, blv;
+  int cnt = 0;
+
+  for (int iy = 0; iy < h; iy++) {
+    for (int ix = 0; ix < w; ix++) {
+      byte bb = src[x + ix + iy * pitch];
+      struct palcol *p = getpixel(bb);
+      r += p->r;
+      g += p->g;
+      b += p->b;
+      cnt++;
+    }
+  }
+
+  r = (r / cnt) & 0xff;
+  g = (g / cnt) & 0xff;
+  b = (b / cnt) & 0xff;
+
+  rlv = r / 0x28;
+  if (rlv > 0) {
+    rlv--;
+  }
+  glv = g / 0x28;
+  if (glv > 0) {
+    glv--;
+  }
+  blv = b / 0x28;
+  if (blv > 0) {
+    blv--;
+  }
+  if (rlv == 0 && glv == 0 && blv == 0) {
+    int total = (r + g + b) / 3;
+    return 232 + (total / 11);
+  } else {
+    return rlv * 36 + glv * 6 + blv + 16;
+  }
+}
+
+int togray3(byte *src, int x, int pitch, int w, int h)
+{
+  int r = 0, g = 0, b = 0;
+  int cnt = 0;
+
+  for (int iy = 0; iy < h; iy++) {
+    for (int ix = 0; ix < w; ix++) {
+      byte bb = src[x + ix + iy * pitch];
+      struct palcol *p = getpixel(bb);
+      r += p->r;
+      g += p->g;
+      b += p->b;
+      cnt++;
+    }
+  }
+
+  printf("\e[48;2;%d;%d;%dm", (r / cnt) & 0xff, (g / cnt) & 0xff, (b / cnt) & 0xff);
+
+  return 0;
 }
 
 //
@@ -376,6 +506,65 @@ void I_FinishUpdate (void)
     return;
   }
 #endif
+
+  byte *src;
+  int dispx = screens[0].width, dispy = screens[0].height;
+  int pw = 10, ph = 8;
+  int hhh = dispy / ph;
+  int bef = 232;
+
+  if (1) {
+
+    src = screens[0].data;
+    printf("\e[?25l");
+    printf("\e[48;5;%dm", bef);
+    printf("\r");
+    for (int j = 0; j < dispy / ph; j++) {
+      for (int i = 0; i < dispx / pw; i++) {
+        int cur;
+        //printf("\e[48;5;%dm ", (unsigned int)togray(src[i*pw]));
+        cur = tocol2(src, i*pw, screens[0].byte_pitch, pw, ph);
+        if (bef != cur) {
+          bef = cur;
+          printf("\e[48;5;%dm", bef);
+        }
+        printf("  ");
+      }
+      if (j != hhh - 1) {
+        printf("\n");
+      }
+      src += screens[0].byte_pitch*ph;
+    }
+   
+    for (int j = 0; j < hhh - 1; j++) {
+      printf("\033[1A");
+    }
+   
+  } else {
+    
+    src = screens[0].data;
+    printf("\e[?25l");
+    printf("\e[48;5;%dm", bef);
+    printf("\r");
+    for (int j = 0; j < dispy / ph; j++) {
+      for (int i = 0; i < dispx / pw; i++) {
+        int cur;
+        cur = togray3(src, i*pw, screens[0].byte_pitch, pw, ph);
+        printf("  ");
+      }
+      if (j != hhh - 1) {
+        printf("\n");
+      }
+      src += screens[0].byte_pitch*ph;
+    }
+   
+    for (int j = 0; j < hhh - 1; j++) {
+      printf("\033[1A");
+    }
+   
+  }
+
+#if 0
   if (SDL_MUSTLOCK(screen)) {
       int h;
       byte *src;
@@ -396,13 +585,17 @@ void I_FinishUpdate (void)
       }
       SDL_UnlockSurface(screen);
   }
+#endif
+
   /* Update the display buffer (flipping video pages if supported)
    * If we need to change palette, that implicitely does a flip */
   if (newpal != NO_PALETTE_CHANGE) {
     I_UploadNewPalette(newpal);
     newpal = NO_PALETTE_CHANGE;
   }
+#if 0
   SDL_Flip(screen);
+#endif
 }
 
 //
@@ -417,6 +610,7 @@ void I_FinishUpdate (void)
 
 int I_ScreenShot (const char *fname)
 {
+#if 0
 #ifdef GL_DOOM
   if (V_GetMode() == VID_MODEGL)
   {
@@ -441,6 +635,8 @@ int I_ScreenShot (const char *fname)
   else
 #endif
   return SAVE_PNG_OR_BMP(SDL_GetVideoSurface(), fname);
+#endif
+  return 1;
 }
 
 //
@@ -455,7 +651,7 @@ void I_SetPalette (int pal)
 
 static void I_ShutdownSDL(void)
 {
-  SDL_Quit();
+  //SDL_Quit();
   return;
 }
 
@@ -470,6 +666,7 @@ void I_PreInitGraphics(void)
 
   putenv(window_pos.s);
 
+#if 0
   // Initialize SDL
   if (!(M_CheckParm("-nodraw") && M_CheckParm("-nosound")))
     flags = SDL_INIT_VIDEO;
@@ -481,6 +678,7 @@ void I_PreInitGraphics(void)
   }
 
   atexit(I_ShutdownSDL);
+#endif
 }
 
 // e6y
@@ -489,6 +687,7 @@ void I_PreInitGraphics(void)
 // It should be used only for fullscreen modes.
 static void I_ClosestResolution (int *width, int *height, int flags)
 {
+#if 0
   SDL_Rect **modes;
   int twidth, theight;
   int cwidth = 0, cheight = 0;
@@ -532,6 +731,7 @@ static void I_ClosestResolution (int *width, int *height, int flags)
       return;
     }
   }
+#endif
 }  
 
 // CPhipps -
@@ -553,7 +753,7 @@ void I_CalculateRes(unsigned int width, unsigned int height)
   if (V_GetMode() == VID_MODEGL) {
     if ( desired_fullscreen )
     {
-      I_ClosestResolution(&width, &height, SDL_OPENGL|SDL_FULLSCREEN);
+      //I_ClosestResolution(&width, &height, SDL_OPENGL|SDL_FULLSCREEN);
     }
     SCREENWIDTH = width;
     SCREENHEIGHT = height;
@@ -614,7 +814,7 @@ void I_InitGraphics(void)
     strcpy(titlebuffer,PACKAGE);
     strcat(titlebuffer," ");
     strcat(titlebuffer,VERSION);
-    SDL_WM_SetCaption(titlebuffer, titlebuffer);
+    //SDL_WM_SetCaption(titlebuffer, titlebuffer);
 
     /* Initialize the input system */
     I_InitInputs();
@@ -667,6 +867,7 @@ void I_UpdateVideoMode(void)
   I_SetRes();
 
   // Initialize SDL with this graphics mode
+#if 0
   if (V_GetMode() == VID_MODEGL) {
     init_flags = SDL_OPENGL;
   } else {
@@ -719,17 +920,19 @@ void I_UpdateVideoMode(void)
   {
     screens[0].not_on_heap = false;
   }
+#endif
 
   V_AllocScreens();
 
   // Hide pointer while over this window
-  SDL_ShowCursor(0);
+  //SDL_ShowCursor(0);
 
   I_PrepareMouse(1);
 
   R_InitBuffer(SCREENWIDTH, SCREENHEIGHT);
 
   if (V_GetMode() == VID_MODEGL) {
+#if 0
     int temp;
     lprintf(LO_INFO,"SDL OpenGL PixelFormat:\n");
     SDL_GL_GetAttribute( SDL_GL_RED_SIZE, &temp );
@@ -754,6 +957,7 @@ void I_UpdateVideoMode(void)
     lprintf(LO_INFO,"    SDL_GL_BUFFER_SIZE: %i\n",temp);
     SDL_GL_GetAttribute( SDL_GL_DEPTH_SIZE, &temp );
     lprintf(LO_INFO,"    SDL_GL_DEPTH_SIZE: %i\n",temp);
+#endif
 #ifdef GL_DOOM
     gld_Init(SCREENWIDTH, SCREENHEIGHT);
 #endif
