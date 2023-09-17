@@ -16,7 +16,16 @@ Makefile.in
 /config.status
 
 # by configure
-Makefile
+/Makefile
+/ICONS/Makefile
+/VisualC6/Makefile
+/VisualC8/Makefile
+/data/Makefile
+/doc/Makefile
+/src/Makefile
+/src/MAC/Makefile
+/src/POSIX/Makefile
+/src/SDL/Makefile
 .deps/
 /stamp-h1
 /prboom.spec
