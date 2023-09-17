@@ -12,6 +12,7 @@ Makefile.in
 /configure~
 /config.h
 /config.h.in
+/config.h.in~
 /config.log
 /config.status
 
@@ -37,3 +38,6 @@ Makefile.in
 /src/POSIX/libposixdoom.a
 /src/SDL/libsdldoom.a
 /src/prboom
+
+# by riscv make
+/src/riscv/prboom
