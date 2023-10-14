@@ -216,7 +216,7 @@ static void createPatch(int id) {
   patch->isNotTileable = getPatchIsNotTileable(oldPatch);
 
   // work out how much memory we need to allocate for this patch's data
-  pixelDataSize = (patch->width * patch->height + 4) & ~3;
+  pixelDataSize = (patch->width * patch->height + 8) & ~7;
   columnsDataSize = sizeof(rcolumn_t) * patch->width;
 
   // count the number of posts in each column
@@ -437,7 +437,7 @@ static void createTextureCompositePatch(int id) {
   composite_patch->isNotTileable = 0;
 
   // work out how much memory we need to allocate for this patch's data
-  pixelDataSize = (composite_patch->width * composite_patch->height + 4) & ~3;
+  pixelDataSize = (composite_patch->width * composite_patch->height + 8) & ~7;
   columnsDataSize = sizeof(rcolumn_t) * composite_patch->width;
 
   // count the number of posts in each column
